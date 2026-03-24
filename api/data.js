@@ -10,18 +10,20 @@ export default async function handler(request, response) {
   }
 
   try {
-    const { blobs } = await list({
-      prefix: 'sessions.json',
-      limit: 1,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    console.log('[api/data] token exists:', !!token, 'len:', token?.length);
 
-    if (!blobs.length) {
+    const result = await list({ token });
+    console.log('[api/data] total blobs:', result.blobs.length);
+    result.blobs.forEach(b => console.log('[api/data] blob:', b.pathname, b.size));
+
+    const sessionBlob = result.blobs.find(b => b.pathname === 'sessions.json');
+    if (!sessionBlob) {
       response.setHeader('Cache-Control', 'private, max-age=60');
       return response.status(200).json(EMPTY_DATA);
     }
 
-    const blobResponse = await fetch(blobs[0].url);
+    const blobResponse = await fetch(sessionBlob.url);
     if (!blobResponse.ok) {
       return response.status(200).json(EMPTY_DATA);
     }
