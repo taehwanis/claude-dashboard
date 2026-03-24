@@ -1,4 +1,4 @@
-import { list, getDownloadUrl } from '@vercel/blob';
+import { head } from '@vercel/blob';
 
 const EMPTY_DATA = {
   sessions: [], projects: [], stats: null, syncedAt: null
@@ -11,19 +11,23 @@ export default async function handler(request, response) {
 
   try {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const result = await list({ token });
-    const sessionBlob = result.blobs.find(b => b.pathname === 'sessions.json');
 
-    if (!sessionBlob) {
+    // head()로 blob 메타데이터 + downloadUrl 획득
+    let blobMeta;
+    try {
+      blobMeta = await head('sessions.json', { token });
+    } catch {
+      // blob 없음 (404) → 빈 데이터
       response.setHeader('Cache-Control', 'private, max-age=60');
       return response.status(200).json(EMPTY_DATA);
     }
 
-    // Private blob → 인증된 다운로드 URL 획득 후 fetch
-    const downloadUrl = await getDownloadUrl(sessionBlob.url, { token });
+    // downloadUrl은 인증된 URL (private store에서도 접근 가능)
+    const downloadUrl = blobMeta.downloadUrl;
     const blobResponse = await fetch(downloadUrl);
 
     if (!blobResponse.ok) {
+      console.error('[api/data] fetch failed:', blobResponse.status);
       return response.status(200).json(EMPTY_DATA);
     }
 
