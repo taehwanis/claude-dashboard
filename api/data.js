@@ -12,22 +12,21 @@ export default async function handler(request, response) {
   try {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
 
-    // head()로 blob 메타데이터 + downloadUrl 획득
     let blobMeta;
     try {
       blobMeta = await head('sessions.json', { token });
     } catch {
-      // blob 없음 (404) → 빈 데이터
       response.setHeader('Cache-Control', 'private, max-age=60');
       return response.status(200).json(EMPTY_DATA);
     }
 
-    // downloadUrl은 인증된 URL (private store에서도 접근 가능)
-    const downloadUrl = blobMeta.downloadUrl;
-    const blobResponse = await fetch(downloadUrl);
+    // Private blob → Authorization 헤더로 접근
+    const blobResponse = await fetch(blobMeta.url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     if (!blobResponse.ok) {
-      console.error('[api/data] fetch failed:', blobResponse.status);
+      console.error('[api/data] blob fetch failed:', blobResponse.status);
       return response.status(200).json(EMPTY_DATA);
     }
 
