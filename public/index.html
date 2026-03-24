@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Claude Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg0: #0a0a0a;
+      --bg1: #141414;
+      --bg2: #1a1a1a;
+      --bg3: #242424;
+      --bd:  #333;
+      --tx0: #e5e5e5;
+      --tx1: #a0a0a0;
+      --tx2: #666;
+      --ac:  #7c6af5;
+      --ac2: #4a9eff;
+      --err: #f55;
+      --ok:  #4caf50;
+      --warn: #f90;
+    }
+
+    body {
+      background: var(--bg0);
+      color: var(--tx0);
+      font-family: -apple-system, system-ui, sans-serif;
+      font-size: 14px;
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── PIN 화면 ─────────────────────────────────────── */
+    #pin-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 24px;
+      gap: 32px;
+    }
+
+    .pin-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--tx0);
+      letter-spacing: -0.3px;
+    }
+
+    .pin-subtitle {
+      font-size: 13px;
+      color: var(--tx2);
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    .pin-dots {
+      display: flex;
+      gap: 16px;
+      height: 40px;
+      align-items: center;
+    }
+
+    .pin-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--bd);
+      background: transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .pin-dot.filled {
+      background: var(--ac);
+      border-color: var(--ac);
+    }
+
+    .pin-error {
+      font-size: 13px;
+      color: var(--err);
+      min-height: 20px;
+      text-align: center;
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 72px);
+      grid-template-rows: repeat(4, 64px);
+      gap: 10px;
+    }
+
+    .kbtn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: 12px;
+      color: var(--tx0);
+      font-size: 22px;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.1s, transform 0.08s;
+      touch-action: manipulation;
+      min-height: 56px;
+    }
+
+    .kbtn:active {
+      background: var(--bg3);
+      transform: scale(0.95);
+    }
+
+    .kbtn.backspace { font-size: 18px; }
+    .kbtn.confirm {
+      background: var(--ac);
+      border-color: var(--ac);
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .kbtn.confirm:active { background: #6a5adc; }
+    .kbtn.empty { visibility: hidden; pointer-events: none; }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-8px); }
+      40%      { transform: translateX(8px); }
+      60%      { transform: translateX(-6px); }
+      80%      { transform: translateX(6px); }
+    }
+    .shake { animation: shake 0.4s ease; }
+
+    /* ── 앱 대시보드 ──────────────────────────────────── */
+    #app { display: none; }
+
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg0);
+      border-bottom: 1px solid var(--bd);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .top-bar h1 {
+      font-size: 16px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .synced-at {
+      font-size: 11px;
+      color: var(--tx2);
+      white-space: nowrap;
+    }
+
+    /* 통계 바 */
+    .stats-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--bd);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .stats-bar::-webkit-scrollbar { display: none; }
+
+    .stat-item {
+      flex: 1;
+      min-width: 80px;
+      padding: 14px 12px;
+      text-align: center;
+      border-right: 1px solid var(--bd);
+    }
+    .stat-item:last-child { border-right: none; }
+
+    .stat-val {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--tx0);
+      line-height: 1;
+    }
+
+    .stat-lbl {
+      font-size: 11px;
+      color: var(--tx2);
+      margin-top: 4px;
+    }
+
+    /* 메인 콘텐츠 */
+    .main {
+      padding: 16px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    /* 차트 */
+    .chart-wrap {
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .chart-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--tx1);
+      margin-bottom: 12px;
+    }
+
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 100px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .bar-chart::-webkit-scrollbar { display: none; }
+
+    .bar-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .bar-val {
+      font-size: 9px;
+      color: var(--tx2);
+      min-height: 12px;
+    }
+
+    .bar {
+      width: 100%;
+      min-width: 8px;
+      background: var(--ac);
+      border-radius: 3px 3px 0 0;
+      min-height: 4px;
+      transition: background 0.2s;
+    }
+    .bar:hover { background: var(--ac2); }
+
+    .bar-label {
+      font-size: 9px;
+      color: var(--tx2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 32px;
+      text-align: center;
+    }
+
+    .h-bar-chart { display: flex; flex-direction: column; gap: 8px; }
+
+    .h-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .h-bar-name {
+      font-size: 12px;
+      color: var(--tx1);
+      width: 90px;
+      min-width: 90px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .h-bar {
+      height: 20px;
+      background: var(--ac2);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      min-width: 28px;
+      transition: width 0.3s ease;
+    }
+
+    .h-bar span {
+      font-size: 11px;
+      color: #fff;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* 필터 영역 */
+    .filter-section {
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .dr-btns {
+      display: flex;
+      gap: 4px;
+    }
+
+    .drbtn {
+      padding: 6px 12px;
+      border: 1px solid var(--bd);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--tx1);
+      font-size: 12px;
+      cursor: pointer;
+      touch-action: manipulation;
+      min-height: 32px;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .drbtn.on {
+      background: var(--ac);
+      border-color: var(--ac);
+      color: #fff;
+    }
+
+    .filter-select {
+      background: var(--bg3);
+      border: 1px solid var(--bd);
+      border-radius: 6px;
+      color: var(--tx0);
+      font-size: 12px;
+      padding: 6px 10px;
+      min-height: 32px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .sort-select {
+      background: var(--bg3);
+      border: 1px solid var(--bd);
+      border-radius: 6px;
+      color: var(--tx0);
+      font-size: 12px;
+      padding: 6px 10px;
+      min-height: 32px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--bd);
+      border-radius: 6px;
+      color: var(--tx0);
+      font-size: 13px;
+      padding: 8px 12px;
+      min-height: 38px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-input:focus { border-color: var(--ac); }
+    .search-input::placeholder { color: var(--tx2); }
+
+    .result-count {
+      font-size: 12px;
+      color: var(--tx2);
+    }
+
+    /* 세션 그리드 */
+    .session-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    @media (min-width: 768px) {
+      .session-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* 세션 카드 */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: 8px;
+      padding: 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .card:hover { border-color: #555; }
+    .card.expanded { border-color: var(--ac); }
+
+    .c-proj {
+      font-size: 11px;
+      color: var(--tx2);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-bottom: 6px;
+    }
+
+    .c-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--tx0);
+      margin-bottom: 6px;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .c-title .named { color: var(--tx0); }
+    .c-title .unnamed { color: var(--tx1); font-style: italic; }
+
+    .c-prev {
+      font-size: 12px;
+      color: var(--tx2);
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      margin-bottom: 8px;
+    }
+
+    .c-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      font-size: 11px;
+      color: var(--tx2);
+    }
+
+    .chain-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      background: rgba(124, 106, 245, 0.15);
+      border: 1px solid rgba(124, 106, 245, 0.3);
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--ac);
+    }
+
+    .c-toggle {
+      font-size: 11px;
+      color: var(--tx2);
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    /* 카드 확장 영역 */
+    .card-detail {
+      margin-top: 12px;
+      border-top: 1px solid var(--bd);
+      padding-top: 12px;
+    }
+
+    .msg-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .msg-item {
+      font-size: 12px;
+      color: var(--tx1);
+      background: var(--bg1);
+      border-radius: 6px;
+      padding: 8px 10px;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+
+    .resume-cmd {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg3);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+
+    .resume-cmd code {
+      flex: 1;
+      font-size: 11px;
+      color: var(--tx1);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .copy-btn {
+      padding: 4px 10px;
+      border: 1px solid var(--bd);
+      border-radius: 5px;
+      background: var(--bg2);
+      color: var(--tx1);
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      min-height: 28px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .copy-btn:active, .copy-btn.copied {
+      background: var(--ok);
+      color: #fff;
+      border-color: var(--ok);
+    }
+
+    /* 빈 상태 */
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--tx2);
+    }
+
+    .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+    /* 로딩 */
+    .loading-state {
+      text-align: center;
+      padding: 48px;
+      color: var(--tx2);
+    }
+
+    /* 토스트 */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--bg3);
+      border: 1px solid var(--bd);
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 13px;
+      color: var(--tx0);
+      z-index: 9999;
+      transition: transform 0.25s ease;
+      white-space: nowrap;
+    }
+
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* 유틸 */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- PIN 화면 -->
+<div id="pin-screen">
+  <div style="text-align:center">
+    <div class="pin-title">Claude Dashboard</div>
+    <div class="pin-subtitle">PIN 6자리를 입력하세요</div>
+  </div>
+
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot" data-idx="0"></div>
+    <div class="pin-dot" data-idx="1"></div>
+    <div class="pin-dot" data-idx="2"></div>
+    <div class="pin-dot" data-idx="3"></div>
+    <div class="pin-dot" data-idx="4"></div>
+    <div class="pin-dot" data-idx="5"></div>
+  </div>
+
+  <div class="pin-error" id="pinError"></div>
+
+  <div class="keypad" id="keypad">
+    <!-- 1~9 -->
+    <button class="kbtn" data-digit="1">1</button>
+    <button class="kbtn" data-digit="2">2</button>
+    <button class="kbtn" data-digit="3">3</button>
+    <button class="kbtn" data-digit="4">4</button>
+    <button class="kbtn" data-digit="5">5</button>
+    <button class="kbtn" data-digit="6">6</button>
+    <button class="kbtn" data-digit="7">7</button>
+    <button class="kbtn" data-digit="8">8</button>
+    <button class="kbtn" data-digit="9">9</button>
+    <!-- 4행: backspace, 0, confirm -->
+    <button class="kbtn backspace" id="backspaceBtn">⌫</button>
+    <button class="kbtn" data-digit="0">0</button>
+    <button class="kbtn confirm" id="confirmBtn">확인</button>
+  </div>
+</div>
+
+<!-- 대시보드 -->
+<div id="app">
+  <!-- 상단 바 -->
+  <div class="top-bar">
+    <h1>Claude Sessions</h1>
+    <span class="synced-at" id="syncedAt"></span>
+  </div>
+
+  <!-- 통계 -->
+  <div class="stats-bar" id="statsBar"></div>
+
+  <!-- 메인 -->
+  <div class="main">
+    <!-- 차트 -->
+    <div id="chartsArea"></div>
+
+    <!-- 필터 -->
+    <div class="filter-section">
+      <div class="filter-row">
+        <div class="dr-btns" id="dateRangeBtns">
+          <button class="drbtn on" data-dr="all">전체</button>
+          <button class="drbtn" data-dr="today">오늘</button>
+          <button class="drbtn" data-dr="week">이번 주</button>
+          <button class="drbtn" data-dr="month">이번 달</button>
+        </div>
+        <select class="filter-select" id="projectSelect">
+          <option value="all">전체 프로젝트</option>
+        </select>
+        <select class="sort-select" id="sortSelect">
+          <option value="date">날짜순</option>
+          <option value="name">이름순</option>
+          <option value="msgs">메시지순</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <input type="search" class="search-input" id="searchInput" placeholder="검색 (이름, 메시지, 프로젝트)...">
+      </div>
+      <div class="filter-row">
+        <span class="result-count" id="resultCount"></span>
+      </div>
+    </div>
+
+    <!-- 세션 그리드 -->
+    <div class="session-grid" id="sessionGrid">
+      <div class="loading-state">데이터 로딩 중...</div>
+    </div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── 전역 상태 ──────────────────────────────────────────
+const state = {
+  pin: '',
+  dateRange: 'all',
+  project: 'all',
+  sortKey: 'date',
+  query: '',
+  expandedId: null,
+};
+
+let sessionData = null;
+
+// ── 유틸 함수 ──────────────────────────────────────────
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function trunc(str, len) {
+  if (!str) return '';
+  return str.length > len ? str.slice(0, len) + '…' : str;
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return '방금';
+  if (minutes < 60) return `${minutes}분 전`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}일 전`;
+  return `${Math.floor(days / 30)}개월 전`;
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('복사했습니다');
+  } catch {
+    showToast('복사 실패');
+  }
+}
+
+// ── PIN 화면 ──────────────────────────────────────────
+function updateDots() {
+  document.querySelectorAll('.pin-dot').forEach((dot, idx) => {
+    dot.classList.toggle('filled', idx < state.pin.length);
+  });
+}
+
+function setError(msg) {
+  document.getElementById('pinError').textContent = msg;
+}
+
+function shakeScreen() {
+  const dots = document.getElementById('pinDots');
+  dots.classList.remove('shake');
+  void dots.offsetWidth; // reflow
+  dots.classList.add('shake');
+  if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+}
+
+function resetPin() {
+  state.pin = '';
+  updateDots();
+}
+
+document.getElementById('keypad').addEventListener('click', (event) => {
+  const btn = event.target.closest('.kbtn');
+  if (!btn) return;
+
+  const digit = btn.dataset.digit;
+  if (digit !== undefined) {
+    if (state.pin.length < 6) {
+      state.pin += digit;
+      updateDots();
+      setError('');
+      if (state.pin.length === 6) submitPin();
+    }
+    return;
+  }
+
+  if (btn.id === 'backspaceBtn') {
+    state.pin = state.pin.slice(0, -1);
+    updateDots();
+    setError('');
+    return;
+  }
+
+  if (btn.id === 'confirmBtn') {
+    if (state.pin.length === 6) submitPin();
+  }
+});
+
+async function submitPin() {
+  try {
+    const response = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: state.pin }),
+    });
+
+    if (response.ok) {
+      showDashboard();
+      return;
+    }
+
+    if (response.status === 429) {
+      setError('너무 많은 시도입니다. 잠시 후 다시 시도하세요.');
+      shakeScreen();
+      resetPin();
+      return;
+    }
+
+    setError('PIN이 올바르지 않습니다.');
+    shakeScreen();
+    resetPin();
+  } catch {
+    setError('서버에 연결할 수 없습니다.');
+    shakeScreen();
+    resetPin();
+  }
+}
+
+// ── 초기 인증 확인 ─────────────────────────────────────
+async function init() {
+  try {
+    const response = await fetch('/api/data');
+    if (response.ok) {
+      const data = await response.json();
+      sessionData = data;
+      showDashboard();
+    } else if (response.status === 401) {
+      // PIN 화면 유지
+    } else {
+      setError(`서버 오류 (${response.status})`);
+    }
+  } catch {
+    setError('서버에 연결할 수 없습니다.');
+  }
+}
+
+// ── 대시보드 표시 ─────────────────────────────────────
+async function showDashboard() {
+  if (!sessionData) {
+    try {
+      const response = await fetch('/api/data');
+      if (!response.ok) {
+        setError('데이터 로드 실패');
+        return;
+      }
+      sessionData = await response.json();
+    } catch {
+      setError('데이터 로드 실패');
+      return;
+    }
+  }
+
+  document.getElementById('pin-screen').classList.add('hidden');
+  document.getElementById('app').style.display = 'block';
+
+  renderStats();
+  renderCharts();
+  renderFilters();
+  renderSessions();
+}
+
+// ── 통계 바 ───────────────────────────────────────────
+function renderStats() {
+  const stats = sessionData.stats;
+  const syncedAt = sessionData.syncedAt
+    ? new Date(sessionData.syncedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '';
+
+  document.getElementById('syncedAt').textContent = syncedAt ? `갱신: ${syncedAt}` : '';
+
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-item">
+      <div class="stat-val">${stats.totalSessions.toLocaleString()}</div>
+      <div class="stat-lbl">세션</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val">${stats.totalProjects}</div>
+      <div class="stat-lbl">프로젝트</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val">${stats.totalMessages.toLocaleString()}</div>
+      <div class="stat-lbl">메시지</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" style="font-size:13px;color:var(--tx1)">${stats.generatedAt || '-'}</div>
+      <div class="stat-lbl">생성 시각</div>
+    </div>
+  `;
+}
+
+// ── 차트 ─────────────────────────────────────────────
+function renderCharts() {
+  const container = document.getElementById('chartsArea');
+  container.innerHTML = renderTrendChart() + renderProjectChart();
+}
+
+function renderTrendChart() {
+  if (!sessionData?.sessions?.length) return '';
+
+  const DAYS = 14;
+  const now = new Date();
+  const counts = [];
+  const labels = [];
+
+  for (let i = DAYS - 1; i >= 0; i--) {
+    const day = new Date(now);
+    day.setDate(day.getDate() - i);
+    day.setHours(0, 0, 0, 0);
+    const dayStart = day.getTime();
+    const dayEnd = dayStart + 86400000;
+    labels.push(`${day.getMonth() + 1}/${day.getDate()}`);
+    counts.push(sessionData.sessions.filter(s => s.lastTs >= dayStart && s.lastTs < dayEnd).length);
+  }
+
+  const maxCount = Math.max(...counts, 1);
+  const CHART_HEIGHT = 72;
+
+  const bars = counts.map((count, idx) => {
+    const height = Math.max(Math.round((count / maxCount) * CHART_HEIGHT), count > 0 ? 4 : 0);
+    return `<div class="bar-col">
+      <span class="bar-val">${count > 0 ? count : ''}</span>
+      <div class="bar" style="height:${height}px" title="${labels[idx]}: ${count}건"></div>
+      <span class="bar-label">${labels[idx]}</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="chart-wrap">
+    <div class="chart-title">최근 ${DAYS}일 세션 추이</div>
+    <div class="bar-chart">${bars}</div>
+  </div>`;
+}
+
+function renderProjectChart() {
+  if (!sessionData?.projects?.length) return '';
+
+  const top = sessionData.projects.slice(0, 8);
+  const maxCount = Math.max(...top.map(p => p.mCnt), 1);
+
+  const bars = top.map(p => {
+    const name = p.path.replace(/\\/g, '/').split('/').filter(Boolean).pop() || p.path;
+    const widthPct = Math.max((p.mCnt / maxCount) * 100, 2);
+    return `<div class="h-bar-row">
+      <span class="h-bar-name" title="${esc(p.path)}">${esc(name)}</span>
+      <div class="h-bar" style="width:${widthPct.toFixed(1)}%"><span>${p.mCnt}</span></div>
+    </div>`;
+  }).join('');
+
+  return `<div class="chart-wrap">
+    <div class="chart-title">프로젝트별 메시지 활동량</div>
+    <div class="h-bar-chart">${bars}</div>
+  </div>`;
+}
+
+// ── 필터 ─────────────────────────────────────────────
+function renderFilters() {
+  // 프로젝트 드롭다운
+  const select = document.getElementById('projectSelect');
+  select.innerHTML = `<option value="all">전체 프로젝트 (${sessionData.sessions.length})</option>` +
+    sessionData.projects.map(p => {
+      const name = p.path.replace(/\\/g, '/').split('/').filter(Boolean).pop() || p.path;
+      return `<option value="${esc(p.path)}">${esc(name)} (${p.sCnt})</option>`;
+    }).join('');
+
+  select.value = state.project;
+
+  // 날짜 필터 이벤트
+  document.getElementById('dateRangeBtns').addEventListener('click', (event) => {
+    const btn = event.target.closest('.drbtn');
+    if (!btn) return;
+    state.dateRange = btn.dataset.dr;
+    document.querySelectorAll('.drbtn').forEach(b => b.classList.toggle('on', b === btn));
+    renderSessions();
+  });
+
+  // 프로젝트 필터 이벤트
+  select.addEventListener('change', () => {
+    state.project = select.value;
+    renderSessions();
+  });
+
+  // 정렬 이벤트
+  document.getElementById('sortSelect').addEventListener('change', (event) => {
+    state.sortKey = event.target.value;
+    renderSessions();
+  });
+
+  // 검색 이벤트
+  let searchTimer = null;
+  document.getElementById('searchInput').addEventListener('input', (event) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      state.query = event.target.value.trim();
+      renderSessions();
+    }, 200);
+  });
+}
+
+// ── 필터/정렬 적용 ────────────────────────────────────
+function getFilteredSessions() {
+  let list = sessionData.sessions;
+
+  // 프로젝트 필터
+  if (state.project !== 'all') {
+    list = list.filter(s => s.project === state.project);
+  }
+
+  // 날짜 필터
+  if (state.dateRange !== 'all') {
+    const now = new Date();
+    let cutoff = 0;
+    if (state.dateRange === 'today') {
+      now.setHours(0, 0, 0, 0);
+      cutoff = now.getTime();
+    } else if (state.dateRange === 'week') {
+      now.setDate(now.getDate() - now.getDay());
+      now.setHours(0, 0, 0, 0);
+      cutoff = now.getTime();
+    } else if (state.dateRange === 'month') {
+      now.setDate(1);
+      now.setHours(0, 0, 0, 0);
+      cutoff = now.getTime();
+    }
+    if (cutoff) list = list.filter(s => s.lastTs >= cutoff);
+  }
+
+  // 검색
+  if (state.query) {
+    const query = state.query.toLowerCase();
+    list = list.filter(s =>
+      (s.name && s.name.toLowerCase().includes(query)) ||
+      (s.firstMsg && s.firstMsg.toLowerCase().includes(query)) ||
+      (s.project && s.project.toLowerCase().includes(query)) ||
+      (s.messages && s.messages.some(m => m.toLowerCase().includes(query)))
+    );
+  }
+
+  // 정렬
+  switch (state.sortKey) {
+    case 'date': list = [...list].sort((a, b) => b.lastTs - a.lastTs); break;
+    case 'name': list = [...list].sort((a, b) => (a.name || a.firstMsg || '').localeCompare(b.name || b.firstMsg || '')); break;
+    case 'msgs': list = [...list].sort((a, b) => b.msgCount - a.msgCount); break;
+  }
+
+  return list;
+}
+
+// ── 세션 렌더링 ───────────────────────────────────────
+function renderSessions() {
+  const grid = document.getElementById('sessionGrid');
+  const list = getFilteredSessions();
+
+  document.getElementById('resultCount').textContent =
+    state.query || state.project !== 'all' || state.dateRange !== 'all'
+      ? `${list.length}개 결과`
+      : '';
+
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🔍</div>
+      <div>검색 결과가 없습니다</div>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(s => renderSessionCard(s)).join('');
+
+  // 카드 클릭 이벤트
+  grid.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', (event) => {
+      if (event.target.closest('.copy-btn')) return;
+      const cardId = card.dataset.id;
+      state.expandedId = state.expandedId === cardId ? null : cardId;
+      renderSessions();
+    });
+  });
+
+  // 복사 버튼 이벤트
+  grid.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      await copyText(btn.dataset.value);
+      btn.classList.add('copied');
+      btn.textContent = '✓ 복사됨';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.textContent = '복사';
+      }, 1500);
+    });
+  });
+}
+
+// ── 세션 카드 ─────────────────────────────────────────
+function renderSessionCard(session) {
+  const isExpanded = state.expandedId === session.id;
+
+  const titleHtml = session.name
+    ? `<span class="named">${esc(trunc(session.name, 60))}</span>`
+    : `<span class="unnamed">${esc(trunc(session.firstMsg, 60)) || '(메시지 없음)'}</span>`;
+
+  const chainBadges = [
+    session.parentId ? '<span class="chain-badge">⛓ 이어받음</span>' : '',
+    session.childIds?.length ? `<span class="chain-badge">→ ${session.childIds.length}개 이어짐</span>` : '',
+  ].filter(Boolean).join('');
+
+  let detailHtml = '';
+  if (isExpanded) {
+    const msgListHtml = session.messages?.length
+      ? '<div class="msg-list">' +
+        session.messages.map(m => `<div class="msg-item">${esc(m)}</div>`).join('') +
+        '</div>'
+      : '<div style="padding:8px 0;color:var(--tx2);font-size:12px">수집된 메시지가 없습니다</div>';
+
+    const resumeCmd = `claude --resume ${session.id}`;
+    detailHtml = `<div class="card-detail">
+      ${msgListHtml}
+      <div class="resume-cmd">
+        <code>${esc(resumeCmd)}</code>
+        <button class="copy-btn" data-value="${esc(resumeCmd)}">복사</button>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="card${isExpanded ? ' expanded' : ''}" data-id="${esc(session.id)}">
+    <div class="c-proj" title="${esc(session.project)}">${esc(session.project)}</div>
+    <div class="c-title">${titleHtml}</div>
+    ${session.name && session.firstMsg ? `<div class="c-prev">${esc(trunc(session.firstMsg, 100))}</div>` : ''}
+    <div class="c-meta">
+      <span>🕐 ${timeAgo(session.lastTs)}</span>
+      <span>💬 ${session.msgCount}개</span>
+      ${chainBadges}
+    </div>
+    <div class="c-toggle">${isExpanded ? '▲ 접기' : '▼ 상세'}</div>
+    ${detailHtml}
+  </div>`;
+}
+
+// ── 시작 ─────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
